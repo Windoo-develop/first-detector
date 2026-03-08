@@ -1,46 +1,81 @@
+import logging
 from scapy.all import rdpcap, TCP, ARP
-import pandas as pd
+
+
+logger = logging.getLogger(__name__)
+
 
 def analyze_pcap(file_path: str) -> str:
-    packets = rdpcap(file_path)
+    """
+    Простейший анализ pcap-файла.
+    Проверяем несколько базовых признаков сетевых атак.
+    """
 
-    data = []
+    try:
+        packets = rdpcap(file_path)
+    except Exception as err:
+        logger.error("Cannot read pcap file %s: %s", file_path, err)
+        return "❌ Ошибка чтения файла трафика"
+
+    tcp_syn_count = 0
+    arp_count = 0
+    total_packets = 0
+
+    # иногда scapy возвращает странные пакеты,
+    # поэтому лучше аккуратно проверять каждый
     for pkt in packets:
-        if pkt.haslayer(TCP):
-            data.append({
-                "type": "TCP",
-                "flags": pkt[TCP].flags
-            })
-        elif pkt.haslayer(ARP):
-            data.append({
-                "type": "ARP"
-            })
 
-    df = pd.DataFrame(data)
+        total_packets += 1
 
-    report = []
+        try:
+            if pkt.haslayer(TCP):
+
+                flags = pkt[TCP].flags
+
+                # SYN флаг = 2
+                if flags == 2:
+                    tcp_syn_count += 1
+
+            elif pkt.haslayer(ARP):
+
+                arp_count += 1
+
+        except Exception as parse_err:
+            logger.debug("packet parse error: %s", parse_err)
+            continue
+
+    report_lines = []
     recommendations = []
 
-    if "TCP" in df["type"].values:
-        syn_packets = df[df["flags"] == 2]
-        if len(syn_packets) > 100:
-            report.append("⚠️ Возможная SYN Flood (DoS) атака")
-            recommendations.append("🔐 Ограничить входящие соединения, использовать firewall")
+    # SYN Flood
+    if tcp_syn_count > 100:
+        report_lines.append("⚠️ Возможная SYN Flood (DoS) атака")
+        recommendations.append(
+            "🔐 Проверьте firewall и ограничьте количество входящих соединений"
+        )
 
-    arp_count = len(df[df["type"] == "ARP"])
+    # ARP spoofing
     if arp_count > 50:
-        report.append("⚠️ Возможная ARP Spoofing атака")
-        recommendations.append("🔐 Использовать ARP inspection, защищённый Wi-Fi")
+        report_lines.append("⚠️ Возможная ARP Spoofing атака")
+        recommendations.append(
+            "🔐 Используйте ARP inspection или защищённую сеть"
+        )
 
-    if not report:
-        report.append("✅ Признаков атак не обнаружено")
-        recommendations.append("ℹ️ Сеть работает в нормальном режиме")
+    # если ничего подозрительного
+    if len(report_lines) == 0:
+        report_lines.append("✅ Подозрительной активности не обнаружено")
+        recommendations.append("ℹ️ Трафик выглядит нормальным")
 
-    response = (
-        "📊 Результаты анализа трафика:\n\n"
-        + "\n".join(report)
-        + "\n\n📌 Рекомендации:\n"
-        + "\n".join(recommendations)
-    )
+    text = "📊 Результаты анализа трафика\n\n"
 
-    return response
+    for line in report_lines:
+        text += line + "\n"
+
+    text += "\n📌 Рекомендации\n"
+
+    for rec in recommendations:
+        text += rec + "\n"
+
+    text += f"\n📦 Всего пакетов проанализировано: {total_packets}"
+
+    return text
