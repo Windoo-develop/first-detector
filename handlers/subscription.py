@@ -14,5 +14,8 @@ async def subscribe(call: CallbackQuery):
     user = get_user(call.from_user.id)
     lang = user[1]
 
-    await call.message.answer(TEXT["sub_ok"][lang], reply_markup=get_instruction_keyboard(lang))
+    await call.message.edit_text(
+    TEXT["sub_ok"][lang],
+    reply_markup=get_instruction_keyboard(lang)
+    )
     await call.answer()

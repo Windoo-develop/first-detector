@@ -28,10 +28,13 @@ router = Router()
 @router.message(CommandStart())
 async def start(message: Message):
     user = get_user(message.from_user.id)
-
-    if user and user[2] == 1:
+    if user:
+      if user[2] == 1:
         lang = user[1]
-        await message.answer(TEXT["sub_ok"][lang], reply_markup=get_instruction_keyboard(lang))
+        await message.answer(
+            TEXT["sub_ok"][lang],
+            reply_markup=get_instruction_keyboard(lang)
+        )
         return
 
     kb = InlineKeyboardBuilder()
