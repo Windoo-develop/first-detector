@@ -1,4 +1,3 @@
-import os
 import logging
 from pathlib import Path
 
@@ -17,33 +16,29 @@ TEMP_DIR = Path("temp")
 
 
 def _get_user_language(user_data):
-    """Возвращает язык пользователя или ru по умолчанию."""
     if not user_data:
         return "ru"
     return user_data[1]
 
 
-def _is_valid_capture(filename: str) -> bool:
-    """Проверяет расширение файла захвата."""
+def _is_valid_capture(filename: str):
+
     if not filename:
         return False
 
     filename = filename.lower()
+
     return filename.endswith(".pcap") or filename.endswith(".pcapng")
 
 
 @router.message(F.document)
-async def process_capture_file(message: Message, bot: Bot) -> None:
-    """
-    Обрабатывает файл сетевого захвата, отправленный пользователем.
-    Поддерживаются форматы .pcap и .pcapng.
-    """
+async def process_capture_file(message: Message, bot: Bot):
 
     user_id = message.from_user.id
+
     user_data = get_user(user_id)
     lang = _get_user_language(user_data)
 
-    # Проверка подписки
     if not is_subscribed(user_id):
         await message.answer(TEXT["no_sub"][lang])
         return
@@ -54,35 +49,36 @@ async def process_capture_file(message: Message, bot: Bot) -> None:
         await message.answer(TEXT["need_file"][lang])
         return
 
+    file_path = None
+
     try:
         TEMP_DIR.mkdir(exist_ok=True)
 
-        file_path = TEMP_DIR / f"{document.file_unique_id}.pcap"
+        file_path = TEMP_DIR / document.file_name
 
         logger.info(
-            "User %s uploaded capture file %s",
+            "user %s uploaded capture %s",
             user_id,
             document.file_name
         )
 
         await bot.download(document, destination=file_path)
 
-        # анализ файла
-        analysis_result = analyze_pcap(str(file_path))
+        result = analyze_pcap(str(file_path))
 
-        await message.answer(analysis_result)
+        await message.answer(result)
 
-    except Exception as error:
-        logger.exception("Error while processing capture file")
+    except Exception:
+        logger.exception("error while processing capture")
 
         await message.answer(
             "Произошла ошибка при обработке файла. Попробуйте позже."
         )
 
     finally:
-        # удаляем временный файл
+
         try:
-            if file_path.exists():
+            if file_path and file_path.exists():
                 file_path.unlink()
         except Exception:
-            logger.warning("Failed to delete temporary file %s", file_path)
+            logger.warning("failed to delete temp file %s", file_path)
