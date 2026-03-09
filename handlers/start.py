@@ -92,36 +92,28 @@ async def start_command(message: Message):
 async def language_selected(callback: CallbackQuery):
 
     user_id = callback.from_user.id
-    raw = callback.data
+    lang = callback.data.split("_")[1]
 
-    parts = raw.split("_")
-
-    if len(parts) != 2:
-        await callback.answer()
-        return
-
-    lang = parts[1]
-
-    # проверяем есть ли пользователь
     user = get_user(user_id)
 
-    # если язык уже выбран — игнорируем нажатие
+    # если язык уже выбран — ничего не делаем
     if user is not None:
-        await callback.answer("Language already selected")
+        await callback.answer()
         return
 
     # сохраняем язык
     create_or_update_user(user_id, lang)
 
+    # убираем старую клавиатуру выбора языка
     try:
-        await callback.message.edit_text(
-            TEXT["need_sub"][lang],
-            reply_markup=subscription_keyboard(lang)
-        )
+        await callback.message.edit_reply_markup(reply_markup=None)
     except Exception:
-        await callback.message.answer(
-            TEXT["need_sub"][lang],
-            reply_markup=subscription_keyboard(lang)
-        )
+        pass
+
+    # отправляем сообщение подписки
+    await callback.message.answer(
+        TEXT["need_sub"][lang],
+        reply_markup=subscription_keyboard(lang)
+    )
 
     await callback.answer()
