@@ -97,16 +97,21 @@ async def language_selected(callback: CallbackQuery):
     parts = raw.split("_")
 
     if len(parts) != 2:
-        log.warning("unexpected callback format: %s", raw)
         await callback.answer()
         return
 
     lang = parts[1]
 
-    try:
-        create_or_update_user(user_id, lang)
-    except Exception as e:
-        log.error("cannot save language for %s: %s", user_id, e)
+    # проверяем есть ли пользователь
+    user = get_user(user_id)
+
+    # если язык уже выбран — игнорируем нажатие
+    if user is not None:
+        await callback.answer("Language already selected")
+        return
+
+    # сохраняем язык
+    create_or_update_user(user_id, lang)
 
     try:
         await callback.message.edit_text(
