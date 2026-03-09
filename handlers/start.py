@@ -5,9 +5,11 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.fsm.context import FSMContext
 
 from database import get_user, create_or_update_user
 from .texts import TEXT
+from .states import UserState
 
 
 router = Router()
@@ -50,68 +52,60 @@ def subscription_keyboard(lang: str):
 
 
 @router.message(CommandStart())
-async def start_command(message: Message):
+async def start_command(message: Message, state: FSMContext):
 
     user_id = message.from_user.id
+    user = get_user(user_id)
 
-    try:
-        user = get_user(user_id)
-    except Exception as e:
-        log.warning("failed to read user %s: %s", user_id, e)
-        user = None
-
-    # новый пользователь
     if user is None:
+
+        await state.set_state(UserState.choosing_language)
+
         start_text = TEXT["start"]["ru"] + " / " + TEXT["start"]["en"]
 
         await message.answer(
             start_text,
             reply_markup=language_keyboard()
         )
+
         return
 
     lang = user[1]
     subscribed = user[2]
 
-    # пользователь есть, но без подписки
     if subscribed == 0:
+
+        await state.set_state(UserState.waiting_subscription)
+
         await message.answer(
             TEXT["need_sub"][lang],
             reply_markup=subscription_keyboard(lang)
         )
+
         return
 
-    # пользователь уже подписан
+    await state.set_state(UserState.ready)
+
     await message.answer(
         TEXT["sub_ok"][lang],
         reply_markup=instruction_keyboard(lang)
     )
 
 
-@router.callback_query(F.data.startswith("lang_"))
-async def language_selected(callback: CallbackQuery):
+@router.callback_query(
+    UserState.choosing_language,
+    F.data.startswith("lang_")
+)
+async def language_selected(callback: CallbackQuery, state: FSMContext):
 
     user_id = callback.from_user.id
     lang = callback.data.split("_")[1]
 
-    user = get_user(user_id)
-
-    # если язык уже выбран — ничего не делаем
-    if user is not None:
-        await callback.answer()
-        return
-
-    # сохраняем язык
     create_or_update_user(user_id, lang)
 
-    # убираем старую клавиатуру выбора языка
-    try:
-        await callback.message.edit_reply_markup(reply_markup=None)
-    except Exception:
-        pass
+    await state.set_state(UserState.waiting_subscription)
 
-    # отправляем сообщение подписки
-    await callback.message.answer(
+    await callback.message.edit_text(
         TEXT["need_sub"][lang],
         reply_markup=subscription_keyboard(lang)
     )

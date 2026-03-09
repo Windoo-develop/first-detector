@@ -2,18 +2,20 @@ import logging
 
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
+from aiogram.fsm.context import FSMContext
 
 from database import activate_subscription, get_user
 from .texts import TEXT
 from .start import instruction_keyboard
+from .states import UserState
 
 
 router = Router()
 logger = logging.getLogger(__name__)
 
 
-@router.callback_query(F.data == "subscribe")
-async def on_subscribe_clicked(callback: CallbackQuery):
+@router.callback_query(UserState.waiting_subscription, F.data == "subscribe")
+async def on_subscribe_clicked(callback: CallbackQuery, state: FSMContext):
 
     user_id = callback.from_user.id
 
@@ -24,6 +26,7 @@ async def on_subscribe_clicked(callback: CallbackQuery):
 
     try:
         activate_subscription(user_id)
+        await state.set_state(UserState.ready)
     except Exception as exc:
         logger.error("activate_subscription error for %s: %s", user_id, exc)
         await callback.answer("Something went wrong")
