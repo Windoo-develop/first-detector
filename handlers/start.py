@@ -105,7 +105,14 @@ async def language_selected(callback: CallbackQuery, state: FSMContext):
 
     await state.set_state(UserState.waiting_subscription)
 
-    await callback.message.edit_text(
+    # удаляем сообщение с кнопками языка
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+    # отправляем новое сообщение
+    await callback.message.answer(
         TEXT["need_sub"][lang],
         reply_markup=subscription_keyboard(lang)
     )

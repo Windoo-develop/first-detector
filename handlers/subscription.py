@@ -54,21 +54,16 @@ async def on_subscribe_clicked(callback: CallbackQuery, state: FSMContext):
 
     keyboard = instruction_keyboard(lang)
 
+    # удаляем сообщение с кнопкой подписки
     try:
-        await callback.message.edit_text(
-            text,
-            reply_markup=keyboard
-        )
-    except Exception as exc:
+        await callback.message.delete()
+    except Exception:
+        pass
 
-        logger.info("edit_text failed (%s), sending new message", exc)
+    # отправляем новое сообщение
+    await callback.message.answer(
+        text,
+        reply_markup=keyboard
+    )
 
-        try:
-            await callback.message.answer(
-                text,
-                reply_markup=keyboard
-            )
-        except Exception as send_error:
-            logger.error("failed to send confirmation message: %s", send_error)
-
-    await callback.answer()
+    await callback.answer(cache_time=2)
