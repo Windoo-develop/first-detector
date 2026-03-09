@@ -7,7 +7,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 
-from database import get_user, create_or_update_user
+from database import get_user, create_or_update_user, add_user
 from .texts import TEXT
 from .states import UserState
 
