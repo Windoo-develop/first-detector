@@ -67,6 +67,21 @@ def get_user(user_id: int):
     finally:
         conn.close()
 
+def add_user(user_id: int):
+    """
+    Создаёт пользователя в базе, если его ещё нет.
+    Язык и подписка остаются пустыми/по умолчанию.
+    """
+    conn = _get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+        INSERT OR IGNORE INTO users (user_id)
+        VALUES (?)
+        """, (user_id,))
+        conn.commit()
+    finally:
+        conn.close()
 
 def create_or_update_user(user_id: int, language: str):
     """
