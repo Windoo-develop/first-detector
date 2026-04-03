@@ -56,25 +56,26 @@ async def start_command(message: Message, state: FSMContext):
     user_id = message.from_user.id
     user = get_user(user_id)
     if user is None:
-      add_user(user_id)
-      # await state.set_state(UserState.choosing_language)
-      start_text = TEXT["start"]["ru"] + " / " + TEXT["start"]["en"]
-      await message.answer(
-          start_text,
-          reply_markup=language_keyboard()
-      )
-      return
+        add_user(user_id)
+        await state.set_state(UserState.choosing_language)
+        start_text = TEXT["start"]["ru"] + " / " + TEXT["start"]["en"]
+        await message.answer(
+            start_text,
+            reply_markup=language_keyboard()
+        )
+        return
 
-    lang = user[1] if user[1] else None#проверить правильность
+    lang = user[1] if user[1] else None
     subscribed = user[2] if user[2] else 0
 
     if lang is None:
-      start_text = TEXT["start"]["ru"] + " / " + TEXT["start"]["en"]
-      await message.answer(
-          start_text,
-          reply_markup=language_keyboard()
-      )
-      return
+        await state.set_state(UserState.choosing_language)
+        start_text = TEXT["start"]["ru"] + " / " + TEXT["start"]["en"]
+        await message.answer(
+            start_text,
+            reply_markup=language_keyboard()
+        )
+        return
     
     if subscribed == 0:
         await state.set_state(UserState.waiting_subscription)
@@ -84,11 +85,11 @@ async def start_command(message: Message, state: FSMContext):
         )
         return
     else:
-      await state.set_state(UserState.ready)
-      await message.answer(
-          TEXT["sub_ok"][lang],
-          reply_markup=instruction_keyboard(lang)
-      )
+        await state.set_state(UserState.ready)
+        await message.answer(
+            TEXT["sub_ok"][lang],
+            reply_markup=instruction_keyboard(lang)
+        )
 
 
 @router.callback_query(

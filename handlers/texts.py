@@ -21,6 +21,10 @@ TEXT = {
         "ru": "❌ Пожалуйста, отправьте файл захвата сети (.pcap / .pcapng)",
         "en": "❌ Please send a network capture file (.pcap / .pcapng)"
     },
+    "file_too_large": {
+        "ru": "❌ Файл слишком большой. Отправьте файл до 20 МБ.",
+        "en": "❌ File is too large. Please send a file up to 20 MB."
+    },
     "no_sub": {
         "ru": "❌ Требуется активная подписка.",
         "en": "❌ Active subscription required."

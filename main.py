@@ -1,24 +1,39 @@
 import asyncio
-from aiogram import Bot, Dispatcher
-from dotenv import load_dotenv
-from aiogram.fsm.storage.memory import MemoryStorage
 import os
-from handlers import router
+from pathlib import Path
+
+from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.memory import MemoryStorage
+from dotenv import load_dotenv
+
 from database import init_db
+from handlers import router
 
 storage = MemoryStorage()
+
 load_dotenv()
+load_dotenv(Path("id.env"))
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+
 async def main():
-  await init_db()
-  bot = Bot(token=BOT_TOKEN)
-  dp = Dispatcher(storage=storage)
+    init_db()
 
-  dp.include_router(router)
+    if not BOT_TOKEN:
+        raise ValueError(
+            "BOT_TOKEN is not configured. Set it in the environment, .env, or id.env."
+        )
 
-  await bot.delete_webhook(drop_pending_updates=True)
-  await dp.start_polling(bot)
+    bot = Bot(token=BOT_TOKEN)
+    dp = Dispatcher(storage=storage)
+
+    dp.include_router(router)
+
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
 
 if __name__ == "__main__":
     asyncio.run(main())

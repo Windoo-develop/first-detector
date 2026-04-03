@@ -124,11 +124,13 @@ def activate_subscription(user_id: int):
         timestamp = datetime.utcnow().isoformat()
 
         cur.execute("""
-        UPDATE users
-        SET subscribed = 1,
-            subscribed_at = ?
-        WHERE user_id = ?
-        """, (timestamp, user_id))
+        INSERT INTO users (user_id, subscribed, subscribed_at)
+        VALUES (?, 1, ?)
+        ON CONFLICT(user_id)
+        DO UPDATE SET
+            subscribed = 1,
+            subscribed_at = excluded.subscribed_at
+        """, (user_id, timestamp))
 
         conn.commit()
 
