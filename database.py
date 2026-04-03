@@ -141,6 +141,34 @@ def activate_subscription(user_id: int):
         conn.close()
 
 
+def reset_subscription(user_id: int) -> bool:
+    """
+    Сбрасывает подписку пользователя.
+    Возвращает True, если пользователь найден и обновлён.
+    """
+
+    conn = _get_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute("""
+        UPDATE users
+        SET subscribed = 0,
+            subscribed_at = NULL
+        WHERE user_id = ?
+        """, (user_id,))
+
+        conn.commit()
+        return cur.rowcount > 0
+
+    except Exception as err:
+        logger.error("subscription reset failed for %s: %s", user_id, err)
+        return False
+
+    finally:
+        conn.close()
+
+
 def is_subscribed(user_id: int) -> bool:
     """
     Проверяет активность подписки.

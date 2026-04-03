@@ -2,6 +2,7 @@ import logging
 from aiogram import Router
 
 from .start import router as start_router
+from .admin import router as admin_router
 from .subscription import router as subscription_router
 from .pcap import router as pcap_router
 from .fallback import router as fallback_router
@@ -21,6 +22,7 @@ def register_handlers(main_router: Router) -> None:
 
     routers_to_include = [
         start_router,
+        admin_router,
         subscription_router,
         pcap_router,
         fallback_router,

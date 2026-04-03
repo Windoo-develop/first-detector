@@ -24,6 +24,7 @@ async def setup_bot_commands(bot: Bot) -> None:
             BotCommand(command="start", description="Restart bot"),
             BotCommand(command="language", description="Change language"),
             BotCommand(command="subscribe", description="Open subscription"),
+            BotCommand(command="admin", description="Admin panel"),
         ]
     )
 
@@ -61,6 +62,14 @@ def subscription_keyboard(lang: str):
     return kb.as_markup()
 
 
+def get_user_context(user) -> tuple[str | None, int]:
+    if not user:
+        return None, 0
+    lang = user[1] if len(user) > 1 and user[1] else None
+    subscribed = user[2] if len(user) > 2 and user[2] else 0
+    return lang, subscribed
+
+
 async def _send_language_prompt(message: Message, state: FSMContext) -> None:
     await state.set_state(UserState.choosing_language)
     start_text = TEXT["start"]["ru"] + " / " + TEXT["start"]["en"]
@@ -82,6 +91,14 @@ async def _send_subscription_prompt(
     )
 
 
+async def send_ready_prompt(message: Message, state: FSMContext, lang: str) -> None:
+    await state.set_state(UserState.ready)
+    await message.answer(
+        TEXT["sub_ok"][lang],
+        reply_markup=instruction_keyboard(lang)
+    )
+
+
 @router.message(CommandStart())
 async def start_command(message: Message, state: FSMContext):
     user_id = message.from_user.id
@@ -91,8 +108,7 @@ async def start_command(message: Message, state: FSMContext):
         await _send_language_prompt(message, state)
         return
 
-    lang = user[1] if user[1] else None
-    subscribed = user[2] if user[2] else 0
+    lang, subscribed = get_user_context(user)
 
     if lang is None:
         await _send_language_prompt(message, state)
@@ -101,12 +117,8 @@ async def start_command(message: Message, state: FSMContext):
     if subscribed == 0:
         await _send_subscription_prompt(message, state, lang)
         return
-    else:
-        await state.set_state(UserState.ready)
-        await message.answer(
-            TEXT["sub_ok"][lang],
-            reply_markup=instruction_keyboard(lang)
-        )
+
+    await send_ready_prompt(message, state, lang)
 
 
 @router.message(Command("language"))
@@ -115,6 +127,7 @@ async def change_language_command(message: Message, state: FSMContext):
     if get_user(user_id) is None:
         add_user(user_id)
 
+    await state.clear()
     await _send_language_prompt(message, state)
 
 
@@ -128,26 +141,20 @@ async def subscribe_command(message: Message, state: FSMContext):
         await _send_language_prompt(message, state)
         return
 
-    lang = user[1] if user[1] else None
-    subscribed = user[2] if user[2] else 0
+    lang, subscribed = get_user_context(user)
 
     if lang is None:
         await _send_language_prompt(message, state)
         return
 
     if subscribed:
-        await state.set_state(UserState.ready)
-        await message.answer(
-            TEXT["sub_ok"][lang],
-            reply_markup=instruction_keyboard(lang)
-        )
+        await send_ready_prompt(message, state, lang)
         return
 
     await _send_subscription_prompt(message, state, lang)
 
 
 @router.callback_query(
-    UserState.choosing_language,
     F.data.startswith("lang_")
 )
 async def language_selected(callback: CallbackQuery, state: FSMContext):
@@ -155,7 +162,7 @@ async def language_selected(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     lang = callback.data.split("_")[1]
     user = get_user(user_id)
-    subscribed = user[2] if user and len(user) > 2 and user[2] else 0
+    _, subscribed = get_user_context(user)
 
     create_or_update_user(user_id, lang)
 
@@ -166,11 +173,7 @@ async def language_selected(callback: CallbackQuery, state: FSMContext):
         pass
 
     if subscribed:
-        await state.set_state(UserState.ready)
-        await callback.message.answer(
-            TEXT["sub_ok"][lang],
-            reply_markup=instruction_keyboard(lang)
-        )
+        await send_ready_prompt(callback.message, state, lang)
     else:
         await state.set_state(UserState.waiting_subscription)
         await callback.message.answer(

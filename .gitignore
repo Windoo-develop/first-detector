@@ -16,3 +16,4 @@ env/
 *.swp
 .DS_Store
 tests/
+admin.py

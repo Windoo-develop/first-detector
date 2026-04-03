@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 
 from database import activate_subscription, get_user
 from .texts import TEXT
-from .start import instruction_keyboard
+from .start import send_ready_prompt
 from .states import UserState
 
 
@@ -14,7 +14,7 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 
-@router.callback_query(UserState.waiting_subscription, F.data == "subscribe")
+@router.callback_query(F.data == "subscribe")
 async def on_subscribe_clicked(callback: CallbackQuery, state: FSMContext):
 
     user_id = callback.from_user.id
@@ -52,18 +52,12 @@ async def on_subscribe_clicked(callback: CallbackQuery, state: FSMContext):
     if not text:
         text = TEXT["sub_ok"]["ru"]
 
-    keyboard = instruction_keyboard(lang)
-
     # удаляем сообщение с кнопкой подписки
     try:
         await callback.message.delete()
     except Exception:
         pass
 
-    # отправляем новое сообщение
-    await callback.message.answer(
-        text,
-        reply_markup=keyboard
-    )
+    await send_ready_prompt(callback.message, state, lang)
 
     await callback.answer(cache_time=2)
