@@ -1,10 +1,10 @@
 import logging
 
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 from aiogram.fsm.context import FSMContext
 
 from database import get_user, create_or_update_user, add_user
@@ -16,6 +16,16 @@ router = Router()
 log = logging.getLogger(__name__)
 
 WIRESHARK_GUIDE_URL = "https://first-detector-site.vercel.app"
+
+
+async def setup_bot_commands(bot: Bot) -> None:
+    await bot.set_my_commands(
+        [
+            BotCommand(command="start", description="Restart bot"),
+            BotCommand(command="language", description="Change language"),
+            BotCommand(command="subscribe", description="Open subscription"),
+        ]
+    )
 
 
 def instruction_keyboard(lang: str) -> InlineKeyboardMarkup:
@@ -51,38 +61,45 @@ def subscription_keyboard(lang: str):
     return kb.as_markup()
 
 
+async def _send_language_prompt(message: Message, state: FSMContext) -> None:
+    await state.set_state(UserState.choosing_language)
+    start_text = TEXT["start"]["ru"] + " / " + TEXT["start"]["en"]
+    await message.answer(
+        start_text,
+        reply_markup=language_keyboard()
+    )
+
+
+async def _send_subscription_prompt(
+    message: Message,
+    state: FSMContext,
+    lang: str,
+) -> None:
+    await state.set_state(UserState.waiting_subscription)
+    await message.answer(
+        TEXT["need_sub"][lang],
+        reply_markup=subscription_keyboard(lang)
+    )
+
+
 @router.message(CommandStart())
 async def start_command(message: Message, state: FSMContext):
     user_id = message.from_user.id
     user = get_user(user_id)
     if user is None:
         add_user(user_id)
-        await state.set_state(UserState.choosing_language)
-        start_text = TEXT["start"]["ru"] + " / " + TEXT["start"]["en"]
-        await message.answer(
-            start_text,
-            reply_markup=language_keyboard()
-        )
+        await _send_language_prompt(message, state)
         return
 
     lang = user[1] if user[1] else None
     subscribed = user[2] if user[2] else 0
 
     if lang is None:
-        await state.set_state(UserState.choosing_language)
-        start_text = TEXT["start"]["ru"] + " / " + TEXT["start"]["en"]
-        await message.answer(
-            start_text,
-            reply_markup=language_keyboard()
-        )
+        await _send_language_prompt(message, state)
         return
     
     if subscribed == 0:
-        await state.set_state(UserState.waiting_subscription)
-        await message.answer(
-            TEXT["need_sub"][lang],
-            reply_markup=subscription_keyboard(lang)
-        )
+        await _send_subscription_prompt(message, state, lang)
         return
     else:
         await state.set_state(UserState.ready)
@@ -90,6 +107,43 @@ async def start_command(message: Message, state: FSMContext):
             TEXT["sub_ok"][lang],
             reply_markup=instruction_keyboard(lang)
         )
+
+
+@router.message(Command("language"))
+async def change_language_command(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+    if get_user(user_id) is None:
+        add_user(user_id)
+
+    await _send_language_prompt(message, state)
+
+
+@router.message(Command("subscribe"))
+async def subscribe_command(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+    user = get_user(user_id)
+
+    if user is None:
+        add_user(user_id)
+        await _send_language_prompt(message, state)
+        return
+
+    lang = user[1] if user[1] else None
+    subscribed = user[2] if user[2] else 0
+
+    if lang is None:
+        await _send_language_prompt(message, state)
+        return
+
+    if subscribed:
+        await state.set_state(UserState.ready)
+        await message.answer(
+            TEXT["sub_ok"][lang],
+            reply_markup=instruction_keyboard(lang)
+        )
+        return
+
+    await _send_subscription_prompt(message, state, lang)
 
 
 @router.callback_query(

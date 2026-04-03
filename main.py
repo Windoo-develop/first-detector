@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 from database import init_db
 from handlers import router
+from handlers.start import setup_bot_commands
 
 storage = MemoryStorage()
 
@@ -30,6 +31,7 @@ async def main():
     dp.include_router(router)
 
     try:
+        await setup_bot_commands(bot)
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
     finally:
