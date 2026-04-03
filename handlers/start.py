@@ -154,10 +154,10 @@ async def language_selected(callback: CallbackQuery, state: FSMContext):
 
     user_id = callback.from_user.id
     lang = callback.data.split("_")[1]
+    user = get_user(user_id)
+    subscribed = user[2] if user and len(user) > 2 and user[2] else 0
 
     create_or_update_user(user_id, lang)
-
-    await state.set_state(UserState.waiting_subscription)
 
     # удаляем сообщение с кнопками языка
     try:
@@ -165,10 +165,17 @@ async def language_selected(callback: CallbackQuery, state: FSMContext):
     except Exception:
         pass
 
-    # отправляем новое сообщение
-    await callback.message.answer(
-        TEXT["need_sub"][lang],
-        reply_markup=subscription_keyboard(lang)
-    )
+    if subscribed:
+        await state.set_state(UserState.ready)
+        await callback.message.answer(
+            TEXT["sub_ok"][lang],
+            reply_markup=instruction_keyboard(lang)
+        )
+    else:
+        await state.set_state(UserState.waiting_subscription)
+        await callback.message.answer(
+            TEXT["need_sub"][lang],
+            reply_markup=subscription_keyboard(lang)
+        )
 
     await callback.answer()
